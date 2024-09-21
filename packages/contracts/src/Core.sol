@@ -1,16 +1,20 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./Strategy.sol";
 
 contract Core {
-    mapping(address => address) public userContracts;
+    mapping(address => address) public userStrategies;
 
     constructor()
     {
 
     }
 
-    function createMyStrategy()
-    
+    function createMyStrategy(destinationWallet, destinationChain) external
+    {
+        Strategy strategy = new Strategy(msg.sender,destinationWallet, destinationChain);
+        userStrategies[msg.sender] = address(strategy);
+        emit StrategyDeployed(msg.sender, address(strategy));
+    }
 }
