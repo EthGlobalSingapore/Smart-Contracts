@@ -4,7 +4,6 @@ pragma solidity 0.8.23;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
-import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
 
@@ -18,14 +17,14 @@ contract Strategy is Ownable(msg.sender) {
         uint256 dcaAmount;
         uint256 frequency;
         uint256 lastExecution;
-        bool paused;
+        bool notpaused;
     }
     struct DCAOUT {
         address outToken;
         address targetToken;
         uint256 priceTarget;
         uint256 nextExecution;
-        bool paused;
+        bool notpaused;
     }
     address public destinationWallet;
     adddress public destinationChain;
@@ -47,7 +46,7 @@ contract Strategy is Ownable(msg.sender) {
         dcaINoutToken3: _dcaINoutToken3,
         frequency: 1 minutes, 
         lastExecution: block.timestamp,
-        paused: false
+        paused: true
         }); 
         //emit
     }
@@ -59,8 +58,8 @@ contract Strategy is Ownable(msg.sender) {
         priceTarget: _priceTarget,
         frequency: 5 minutes, 
         lastExecution: block.timestamp,
-        paused: false
-        }); 
+        paused: true
+        });
         //emit
     }
     function deposit(address token, uint256 amount) external {
@@ -89,14 +88,7 @@ contract Strategy is Ownable(msg.sender) {
     {
         bool timepassed = block.timestamp - DCAOUT.lastExecution > DCAOUT.frequency;
         bool targetPriceReached = (getChainlinkDataFeedLatestAnswer() >= DCAOUT._priceTarget);
-        upkeepNeeded = (timepassed && targetPriceReached);
-    }
-    
-    function performUpkeep(bytes calldata /* performData */) external override {
-        if ((block.timestamp - DCAIN.lastExecution) > DCAIN.frequency) {
-            DCAIN.lastExecution = block.timestamp;
-            executeDCAOUT(); //sell order
-        }
+        upkeepNeeded = (DCAIN.notPaused && timepassed && targetPriceReached);
     }
     function getChainlinkDataFeedLatestAnswer() public view returns (int) {
         (
@@ -108,6 +100,23 @@ contract Strategy is Ownable(msg.sender) {
         ) = dataFeed.latestRoundData();
         return answer;
     }
+
+    function performUpkeep(bytes calldata /* performData */) external override {
+        if ((block.timestamp - DCAIN.lastExecution) > DCAIN.frequency) {
+            DCAIN.lastExecution = block.timestamp;
+            executeDCAOUT(); //sell order
+        }
+    }
+    
+    function executeDCAOUT() public 
+    {
+        //1inch trigger sell
+
+    }
+
+
+    //DCAIN executions
+
 
 
 
