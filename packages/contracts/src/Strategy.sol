@@ -10,17 +10,16 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interf
 import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 
-contract Strategy is Ownable(msg.sender) {
+contract Strategy is Ownable {
     mapping(address => uint256) public userBalances; 
     AggregatorV3Interface internal dataFeed;
     ISwapRouter internal uniswapRouter;
     address public chainlinkAutomationRegistry;
-
+    using SafeERC20 for IERC20;
     struct DCAIN {
         address dcaINoutToken1;
         address dcaINoutToken2;
         address dcaINoutToken3;
-        uint256 dcaAmount;
         uint256 frequency;
         uint256 lastExecution;
         bool notpaused;
@@ -28,7 +27,7 @@ contract Strategy is Ownable(msg.sender) {
     struct DCAOUT {
         address outToken;
         address targetToken;
-        uint256 priceTarget;
+        int256 priceTarget;
         uint256 percent;
         uint256 lastExecution;
         uint256 frequency;
@@ -46,12 +45,12 @@ contract Strategy is Ownable(msg.sender) {
 
 
     address public destinationWallet;
-    address public usdc = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
-     DCAIN public dcaInStrategy;
+    address public usdc = 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238;
+    DCAIN public dcaInStrategy;
     DCAOUT public dcaOutStrategy;
-    constructor(address _owner,address _destinationWallet) Ownable()
+
+    constructor(address _owner,address _destinationWallet) Ownable(_owner)
     {   
-        owner = _owner;
         destinationWallet = _destinationWallet;
         dataFeed = AggregatorV3Interface(
             0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43
@@ -74,7 +73,7 @@ contract Strategy is Ownable(msg.sender) {
 
     }
 
-     function setDCAOUTStrategy(address _outToken,address _targetToken,uint256 _priceTarget,uint256 _percent) public
+     function setDCAOUTStrategy(address _outToken,address _targetToken,int256 _priceTarget,uint256 _percent) public
     { 
         dcaOutStrategy = DCAOUT({outToken: _outToken,
         targetToken: _targetToken,
@@ -82,13 +81,13 @@ contract Strategy is Ownable(msg.sender) {
         percent: _percent,
         frequency: 5 minutes, 
         lastExecution: block.timestamp,
-        paused: true
+        notpaused: true
         });
         //emit
     }
     function updateAllowance(address token, uint256 amount) public onlyOwner {
-        IERC20(token).safeApprove(address(uniswapRouter), 0);
-        IERC20(token).safeApprove(address(uniswapRouter), amount);
+       // IERC20(token).safeApprove(address(uniswapRouter), 0);
+        IERC20(token).approve(address(uniswapRouter), amount);
         emit AllowanceUpdated(token, amount);
     }
 
@@ -113,12 +112,13 @@ contract Strategy is Ownable(msg.sender) {
     )
         external
         view
-        override
+        
         returns (bool upkeepNeeded, bytes memory /* performData */)
     {
-        bool timepassed = block.timestamp - dcaOutStrategy > DCAOUT.frequency;
-        bool targetPriceReached = (getChainlinkDataFeedLatestAnswer() >= DCAOUT._priceTarget);
-        upkeepNeeded = (dcaOutStrategy.notPaused && timepassed && targetPriceReached);
+        bool timepassed = block.timestamp - dcaOutStrategy.lastExecution > dcaOutStrategy.frequency;
+        bool targetPriceReached = 
+        (getChainlinkDataFeedLatestAnswer() >= dcaOutStrategy.priceTarget);
+        upkeepNeeded = (dcaOutStrategy.notpaused && timepassed && targetPriceReached);
     }
     function getChainlinkDataFeedLatestAnswer() public view returns (int) {
         (
@@ -131,9 +131,9 @@ contract Strategy is Ownable(msg.sender) {
         return answer;
     }
 
-    function performUpkeep(bytes calldata /* performData */) external override {
+    function performUpkeep(bytes calldata /* performData */) external  {
         if ((block.timestamp - dcaOutStrategy.lastExecution) > dcaOutStrategy.frequency) {
-            DCAIN.lastExecution = block.timestamp;
+            dcaInStrategy.lastExecution = block.timestamp;
             executeDCAOUT(); 
         }
     }
@@ -144,7 +144,7 @@ contract Strategy is Ownable(msg.sender) {
         uint256 split = usdcBal/3;
      ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
                 tokenIn: usdc,
-                tokenOut: dcaOutStrategy.outToken1,
+                tokenOut: dcaInStrategy.dcaINoutToken1,
                 fee: 3000,
                 recipient: address(this),
                 deadline: block.timestamp + 60,
@@ -156,7 +156,7 @@ contract Strategy is Ownable(msg.sender) {
 
             params = ISwapRouter.ExactInputSingleParams({
                 tokenIn: usdc,
-                tokenOut: dcaOutStrategy.outToken2,
+                tokenOut: dcaInStrategy.dcaINoutToken2,
                 fee: 3000,
                 recipient: address(this),
                 deadline: block.timestamp + 60,
@@ -167,7 +167,7 @@ contract Strategy is Ownable(msg.sender) {
             uint256 amountOut2 = uniswapRouter.exactInputSingle(params);
             params = ISwapRouter.ExactInputSingleParams({
                 tokenIn: usdc,
-                tokenOut: dcaOutStrategy.outToken3,
+                tokenOut: dcaInStrategy.dcaINoutToken3,
                 fee: 3000,
                 recipient: address(this),
                 deadline: block.timestamp + 60,
@@ -246,21 +246,21 @@ contract Strategy is Ownable(msg.sender) {
     }
     
     function pauseDCAIN() external {
-        DCAIN.paused = true;
+        dcaInStrategy.notpaused = false;
         emit DCAINPaused(msg.sender);
     }
 
     function resumeDCAIN() external {
-        DCAIN.paused = false;
+        dcaInStrategy.notpaused = true;
         emit DCAINResumed(msg.sender);
     }
     function pauseDCAOUT() external {
-        DCAOUT.paused = true;
+        dcaOutStrategy.notpaused = false;
         emit DCAOUTPaused(msg.sender);
     }
 
     function resumeDCAOUT() external {
-        DCAOUT.paused = false;
+        dcaOutStrategy.notpaused = true;
         emit DCAOUTResumed(msg.sender);
     }
 
