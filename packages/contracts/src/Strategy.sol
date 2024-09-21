@@ -10,6 +10,8 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interf
 contract Strategy is Ownable(msg.sender) {
     mapping(address => uint256) public userBalances; 
     AggregatorV3Interface internal dataFeed;
+    address public chainlinkAutomationRegistry;
+
     struct DCAIN {
         address dcaINoutToken1;
         address dcaINoutToken2;
@@ -27,9 +29,10 @@ contract Strategy is Ownable(msg.sender) {
         bool notpaused;
     }
     address public destinationWallet;
-    adddress public destinationChain;
+    address public destinationChain;
+    address public usdc = "";
 
-    constructor(address _owner,_destinationWallet,_destinationChain)
+    constructor(address _owner,address _destinationWallet,uint256 _destinationChain)
     {
         owner = _owner;
         destinationWallet = _destinationWallet;
@@ -69,7 +72,7 @@ contract Strategy is Ownable(msg.sender) {
         emit Deposited(msg.sender, token, amount);
     }
       function takeProfits(address token, uint256 amount) external {
-        require(userBalances[msg.sender][token] >= amount, "Insufficient balance");
+        require(userBalances[token] >= amount, "Insufficient balance");
         userBalances[token] -= amount;
         address user = payable(msg.sender);
         IERC20(token).transfer(user, amount);
@@ -104,15 +107,46 @@ contract Strategy is Ownable(msg.sender) {
     function performUpkeep(bytes calldata /* performData */) external override {
         if ((block.timestamp - DCAIN.lastExecution) > DCAIN.frequency) {
             DCAIN.lastExecution = block.timestamp;
-            executeDCAOUT(); //sell order
+            executeDCAOUT(); //sell order with 1 inch
         }
     }
-    
+
     function executeDCAOUT() public 
     {
-        //1inch trigger sell
+        
 
     }
+
+    function executeDCAIN() public 
+    {   
+        uint256 count = 0;
+        uint256 usdcBal = ERC20(usdc).balanceOf(address(this));
+
+        if(DCAIN.dcaINoutToken1 != address(0)) {
+            count ++;
+        }
+
+        if(DCAIN.dcaINoutToken2 != address(0)) {
+            count ++;
+        }
+
+        if(DCAIN.dcaINoutToken3 != address(0)) {
+            count ++;
+        }
+
+        swapUSDC(count);
+    }
+
+    function swapUSDC(uint256 count) public {
+        uint256 share = usdcBal/count;
+
+        for (uint256 i = 0; i < count; i++) {
+            swap(share);
+        }
+    }
+
+    
+    
 
 
     //DCAIN executions
