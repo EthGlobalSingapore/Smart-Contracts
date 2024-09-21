@@ -1,0 +1,13 @@
+{
+  "name": "monorepo",
+  "version": "0.0.1",
+  "main": "index.js",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ],
+  "dependencies": {
+    "eslint": "^9.11.0",
+    "prettier": "^3.3.3"
+  }
+}
