@@ -8,7 +8,7 @@ import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 contract Strategy is Ownable(msg.sender) {
-        
+    mapping(address => uint256) public userBalances; 
     struct DCAIN {
         address dcaINoutToken1;
         address dcaINoutToken2;
@@ -20,7 +20,7 @@ contract Strategy is Ownable(msg.sender) {
     }
     struct DCAOUT {
         address outToken;
-        address TargetToken;
+        address targetToken;
         uint256 priceTarget;
         uint256 nextExecution;
         bool paused;
@@ -35,29 +35,57 @@ contract Strategy is Ownable(msg.sender) {
         destinationChain = _destinationChain;
     }
 
-    function setDCAINStrategy(address _dcaINoutToken1,address _dcaINoutToken2,address _dcaINoutToken3,uint256 _frequency) public onlyOwner
+    function setDCAINStrategy(address _dcaINoutToken1,address _dcaINoutToken2,address _dcaINoutToken3,uint256 _frequency) public
     { 
         DCAIN({dcaINoutToken1: _dcaINoutToken1,
         dcaINoutToken2: _dcaINoutToken2,
         dcaINoutToken3: _dcaINoutToken3,
-        frequency: _frequency, //gotta hardcode it to 1 minute for demo
+        frequency: 1 minutes, 
         lastExecution: block.timestamp,
         paused: false
         }); 
         //emit
     }
 
-    function pauseDCA() external {
+     function setDCAOUTStrategy(address _outToken,address targetToken,uint256 priceTarget) public
+    { 
+        DCAOUT({outToken: _outToken,
+        targetToken: _targetToken,
+        priceTarget: _priceTarget,
+        frequency: 5 minutes, //gotta hardcode it to 1 minute for demo
+        lastExecution: block.timestamp,
+        paused: false
+        }); 
+        //emit
+    }
+    function deposit(address token, uint256 amount) external {
+        require(amount > 0, "Amount must be greater than 0");
+        IERC20(token).transferFrom(msg.sender, address(this), amount);
+        userBalances[token] += amount;
+        emit Deposited(msg.sender, token, amount);
+    }
+
+
+    function pauseDCAIN() external {
         DCAIN.paused = true;
-        emit DCAPaused(msg.sender);
+        emit DCAINPaused(msg.sender);
     }
 
-    function resumeDCA() external {
+    function resumeDCAIN() external {
         DCAIN.paused = false;
-        emit DCAResumed(msg.sender);
+        emit DCAINResumed(msg.sender);
+    }
+    function pauseDCAOUT() external {
+        DCAOUT.paused = true;
+        emit DCAOUTPaused(msg.sender);
     }
 
-   
+    function resumeDCAOUT() external {
+        DCAOUT.paused = false;
+        emit DCAOUTResumed(msg.sender);
+    }
+
+ 
 
 
 }

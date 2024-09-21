@@ -6,10 +6,7 @@ import "./Strategy.sol";
 contract Core {
     mapping(address => address) public userStrategies;
 
-    constructor()
-    {
-
-    }
+    constructor(){}
 
     function createMyStrategy(destinationWallet, destinationChain) external
     {
