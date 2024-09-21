@@ -52,7 +52,7 @@ contract Strategy is Ownable(msg.sender) {
         DCAOUT({outToken: _outToken,
         targetToken: _targetToken,
         priceTarget: _priceTarget,
-        frequency: 5 minutes, //gotta hardcode it to 1 minute for demo
+        frequency: 5 minutes, 
         lastExecution: block.timestamp,
         paused: false
         }); 
@@ -63,6 +63,13 @@ contract Strategy is Ownable(msg.sender) {
         IERC20(token).transferFrom(msg.sender, address(this), amount);
         userBalances[token] += amount;
         emit Deposited(msg.sender, token, amount);
+    }
+      function takeProfits(address token, uint256 amount) external {
+        require(userBalances[msg.sender][token] >= amount, "Insufficient balance");
+        userBalances[token] -= amount;
+        address user = payable(msg.sender);
+        IERC20(token).transfer(user, amount);
+        emit ProfitsRealized(user, amount);
     }
 
 
