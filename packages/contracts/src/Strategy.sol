@@ -5,10 +5,12 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
-import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+
 
 contract Strategy is Ownable(msg.sender) {
     mapping(address => uint256) public userBalances; 
+    AggregatorV3Interface internal dataFeed;
     struct DCAIN {
         address dcaINoutToken1;
         address dcaINoutToken2;
@@ -33,6 +35,9 @@ contract Strategy is Ownable(msg.sender) {
         owner = _owner;
         destinationWallet = _destinationWallet;
         destinationChain = _destinationChain;
+        dataFeed = AggregatorV3Interface(
+            0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43
+        );
     }
 
     function setDCAINStrategy(address _dcaINoutToken1,address _dcaINoutToken2,address _dcaINoutToken3,uint256 _frequency) public
@@ -71,6 +76,39 @@ contract Strategy is Ownable(msg.sender) {
         IERC20(token).transfer(user, amount);
         emit ProfitsRealized(user, amount);
     }
+
+    //DCAOUT executions
+
+    function checkUpkeep(
+        bytes calldata /* checkData */
+    )
+        external
+        view
+        override
+        returns (bool upkeepNeeded, bytes memory /* performData */)
+    {
+        bool timepassed = block.timestamp - DCAOUT.lastExecution > DCAOUT.frequency;
+        bool targetPriceReached = (getChainlinkDataFeedLatestAnswer() >= DCAOUT._priceTarget);
+        upkeepNeeded = (timepassed && targetPriceReached);
+    }
+    
+    function performUpkeep(bytes calldata /* performData */) external override {
+        if ((block.timestamp - DCAIN.lastExecution) > DCAIN.frequency) {
+            DCAIN.lastExecution = block.timestamp;
+            executeDCAOUT(); //sell order
+        }
+    }
+    function getChainlinkDataFeedLatestAnswer() public view returns (int) {
+        (
+            /* uint80 roundID */,
+            int answer,
+            /*uint startedAt*/,
+            /*uint timeStamp*/,
+            /*uint80 answeredInRound*/
+        ) = dataFeed.latestRoundData();
+        return answer;
+    }
+
 
 
     function pauseDCAIN() external {
