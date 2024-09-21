@@ -7,13 +7,13 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
-import {IUniswapV2Router02} from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 
 contract Strategy is Ownable(msg.sender) {
     mapping(address => uint256) public userBalances; 
     AggregatorV3Interface internal dataFeed;
-    IUniswapV2Router02 internal uniswapRouter;
+    ISwapRouter internal uniswapRouter;
     address public chainlinkAutomationRegistry;
 
     struct DCAIN {
@@ -57,7 +57,7 @@ contract Strategy is Ownable(msg.sender) {
             0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43
         );
         address _chainlinkAutomationRegistry;
-        uniswapRouter = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D); // Uniswap Router
+        uniswapRouter = ISwapRouter(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D); // Uniswap Router
 
     }
 
@@ -154,7 +154,7 @@ contract Strategy is Ownable(msg.sender) {
             });
             uint256 amountOut1 = uniswapRouter.exactInputSingle(params);
 
-            ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+            params = ISwapRouter.ExactInputSingleParams({
                 tokenIn: usdc,
                 tokenOut: dcaOutStrategy.outToken2,
                 fee: 3000,
@@ -165,7 +165,7 @@ contract Strategy is Ownable(msg.sender) {
                 sqrtPriceLimitX96: 0
             });
             uint256 amountOut2 = uniswapRouter.exactInputSingle(params);
-                ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+            params = ISwapRouter.ExactInputSingleParams({
                 tokenIn: usdc,
                 tokenOut: dcaOutStrategy.outToken3,
                 fee: 3000,
@@ -182,7 +182,10 @@ contract Strategy is Ownable(msg.sender) {
 
     function executeDCAOUT() public 
     {   
-        uint256 balance = IERC20(token).balanceOf(address(this));
+        uint256 amountIn = 0;
+        uint256 balance = IERC20(dcaInStrategy.dcaINoutToken1).balanceOf(address(this));
+
+        amountIn+=balance;
         uint256 amountToSell = (balance * (dcaOutStrategy.percent * 100)) / 10000;
           // Swap on Uniswap
             ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
@@ -199,7 +202,12 @@ contract Strategy is Ownable(msg.sender) {
             // Update balances and next execution time
             userBalances[dcaInStrategy.dcaINoutToken1] -= amountOut;
 
-ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+
+        balance = IERC20(dcaInStrategy.dcaINoutToken2).balanceOf(address(this));
+        amountToSell = (balance * (dcaOutStrategy.percent * 100)) / 10000;
+        amountIn+=balance;
+
+            params = ISwapRouter.ExactInputSingleParams({
                 tokenIn: dcaInStrategy.dcaINoutToken2,
                 tokenOut: usdc,
                 fee: 3000,
@@ -209,12 +217,16 @@ ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleP
                 amountOutMinimum: 0,
                 sqrtPriceLimitX96: 0
             });
-            uint256 amountOut = uniswapRouter.exactInputSingle(params);
+            amountOut = uniswapRouter.exactInputSingle(params);
             // Update balances and next execution time
             userBalances[dcaInStrategy.dcaINoutToken2] -= amountOut;
 
 
-ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+        balance = IERC20(dcaInStrategy.dcaINoutToken3).balanceOf(address(this));
+        amountToSell = (balance * (dcaOutStrategy.percent * 100)) / 10000;
+        amountIn+=balance;
+
+            params = ISwapRouter.ExactInputSingleParams({
                 tokenIn: dcaInStrategy.dcaINoutToken3,
                 tokenOut: usdc,
                 fee: 3000,
@@ -224,7 +236,7 @@ ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleP
                 amountOutMinimum: 0,
                 sqrtPriceLimitX96: 0
             });
-            uint256 amountOut = uniswapRouter.exactInputSingle(params);
+            amountOut = uniswapRouter.exactInputSingle(params);
             // Update balances and next execution time
             userBalances[dcaInStrategy.dcaINoutToken3] -= amountOut;
 
