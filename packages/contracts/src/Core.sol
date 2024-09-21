@@ -19,4 +19,5 @@ contract Core {
     {
         return userStrategies[user];
     }
+    
 }

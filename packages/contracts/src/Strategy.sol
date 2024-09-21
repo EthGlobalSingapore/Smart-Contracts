@@ -5,10 +5,12 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 
 contract Strategy is Ownable(msg.sender) {
     mapping(address => uint256) public userBalances; 
+    ISwapRouter public uniswapRouter;
     AggregatorV3Interface internal dataFeed;
     address public chainlinkAutomationRegistry;
 
@@ -30,7 +32,7 @@ contract Strategy is Ownable(msg.sender) {
     }
     address public destinationWallet;
     address public destinationChain;
-    address public usdc = "";
+    address public usdc = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
 
     constructor(address _owner,address _destinationWallet,uint256 _destinationChain)
     {
@@ -40,6 +42,9 @@ contract Strategy is Ownable(msg.sender) {
         dataFeed = AggregatorV3Interface(
             0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43
         );
+        uniswapRouter = ISwapRouter(_uniswapRouter);
+        address _uniswapRouter;
+        address _chainlinkAutomationRegistry;
     }
 
     function setDCAINStrategy(address _dcaINoutToken1,address _dcaINoutToken2,address _dcaINoutToken3,uint256 _frequency) public
@@ -107,51 +112,37 @@ contract Strategy is Ownable(msg.sender) {
     function performUpkeep(bytes calldata /* performData */) external override {
         if ((block.timestamp - DCAIN.lastExecution) > DCAIN.frequency) {
             DCAIN.lastExecution = block.timestamp;
-            executeDCAOUT(); //sell order with 1 inch
+            executeDCAOUT(); //sell order with uniswap
         }
     }
 
     function executeDCAOUT() public 
     {
-        
-
     }
 
     function executeDCAIN() public 
     {   
-        uint256 count = 0;
-        uint256 usdcBal = ERC20(usdc).balanceOf(address(this));
+        uint256 usdcBal = userBalances[usdc];
+        uint256 percentswap = usdcBal/3;
+         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+                tokenIn: usdc,
+                tokenOut: DCAIN.dcaINoutToken1,
+                fee: 3000,
+                recipient: userAddress,
+                deadline: block.timestamp + 60,
+                amountIn: percentswap,
+                amountOutMinimum: 0,
+                sqrtPriceLimitX96: 0
+            });
+            uint256 amountOut = uniswapRouter.exactInputSingle(params);
 
-        if(DCAIN.dcaINoutToken1 != address(0)) {
-            count ++;
-        }
+            // Update balances and next execution time
+            userBalances[usdc] -= percentswap;
+            userBalances[DCAIN.dcaINoutToken1] += amountOut;
+            config.nextExecution = block.timestamp + config.frequency;
 
-        if(DCAIN.dcaINoutToken2 != address(0)) {
-            count ++;
-        }
-
-        if(DCAIN.dcaINoutToken3 != address(0)) {
-            count ++;
-        }
-
-        swapUSDC(count);
+            emit DCAExecuted(amountIn, amountOut);
     }
-
-    function swapUSDC(uint256 count) public {
-        uint256 share = usdcBal/count;
-
-        for (uint256 i = 0; i < count; i++) {
-            swap(share);
-        }
-    }
-
-    
-    
-
-
-    //DCAIN executions
-
-
 
 
     function pauseDCAIN() external {
