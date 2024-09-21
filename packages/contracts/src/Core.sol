@@ -5,7 +5,7 @@ import "./Strategy.sol";
 
 contract Core {
     mapping(address => address) public userStrategies;
-    event StrategyDeployed(address user, address StrategyContract;
+    event StrategyDeployed(address user, address StrategyContract);
     constructor(){}
 
     function createMyStrategy(address destinationWallet, uint256 destinationChain) external
