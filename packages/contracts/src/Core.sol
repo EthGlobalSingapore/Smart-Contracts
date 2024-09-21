@@ -8,10 +8,11 @@ contract Core {
     event StrategyDeployed(address indexed user, address indexed StrategyContract);
     constructor(){}
 
-    function createMyStrategy(address destinationWallet, uint256 destinationChain) external
+    function createMyStrategy(address destinationWallet) external
     {
-        //require
-        Strategy strategy = new Strategy(msg.sender,destinationWallet, destinationChain);
+        require(userStrategies[msg.sender] == address(0), "Strategy already created");
+
+        Strategy strategy = new Strategy(msg.sender,destinationWallet);
         userStrategies[msg.sender] = address(strategy);
         emit StrategyDeployed(msg.sender, address(strategy));
     }
