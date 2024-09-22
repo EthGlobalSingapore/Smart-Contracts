@@ -116,8 +116,7 @@ contract Strategy is Ownable {
         returns (bool upkeepNeeded, bytes memory /* performData */)
     {
         bool timepassed = block.timestamp - dcaOutStrategy.lastExecution > dcaOutStrategy.frequency;
-        bool targetPriceReached = 
-        (getChainlinkDataFeedLatestAnswer() >= dcaOutStrategy.priceTarget);
+        bool targetPriceReached = (getChainlinkDataFeedLatestAnswer() >= dcaOutStrategy.priceTarget);
         upkeepNeeded = (dcaOutStrategy.notpaused && timepassed && targetPriceReached);
     }
     function getChainlinkDataFeedLatestAnswer() public view returns (int) {
